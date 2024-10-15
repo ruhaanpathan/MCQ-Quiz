@@ -40,6 +40,7 @@ class QuizApp:
         self.question_number = 0
         self.timer_running = False
         self.timer_id = None
+        self.selected_answers = []  # To store selected answers
 
         self.title_label = tk.Label(master, text="🎉 Fun Quiz Time! 🎉", bg="#FFDD57", font=("Comic Sans MS", 24, "bold"))
         self.title_label.grid(row=0, column=0, columnspan=2, pady=10)
@@ -89,8 +90,9 @@ class QuizApp:
         for i, option in enumerate(current_question["options"]):
             self.option_buttons[i].config(text=option, command=lambda opt=option: self.fill_blank(opt))
 
-        self.blank_entry.config(state='readonly')  # Make the entry read-only initially
-        self.blank_entry.delete(0, tk.END)  # Clear previous entry
+        self.blank_entry.config(state='normal')  # Allow editing
+        self.blank_entry.delete(0, tk.END)  # Clear previous entry for new question
+        self.blank_entry.config(state='readonly')  # Set back to read-only
 
         self.start_timer(30)  # Start a 30-second timer
 
@@ -103,11 +105,9 @@ class QuizApp:
     def check_answer(self):
         selected_option = self.blank_entry.get()
         correct_answer = self.questions[self.question_number]["answer"]
+        self.selected_answers.append((selected_option, correct_answer))  # Store the selected answer and correct answer
         if selected_option == correct_answer:
             self.score += 1
-            messagebox.showinfo("Correct!", "Well done!")
-        else:
-            messagebox.showinfo("Oops!", f"Wrong! The correct answer is: {correct_answer}")
 
     def start_timer(self, count):
         if self.timer_running:
@@ -121,22 +121,40 @@ class QuizApp:
             self.timer_label.config(text=f"Time remaining: {count} seconds")
             self.timer_id = self.master.after(1000, self.update_timer, count - 1)
         else:
-            self.check_answer()  # Check the answer when time is up
             self.timer_running = False
+            self.check_answer()  # Check the answer when time is up
             self.next_question()  # Automatically go to the next question
 
     def next_question(self):
-        self.check_answer()  # Check answer before moving to next question
-        self.question_number += 1
         if self.question_number < len(self.questions):
-            self.show_question()
+            self.check_answer()  # Check answer before moving to next question
+            self.question_number += 1
+            if self.question_number < len(self.questions):
+                self.show_question()
+            else:
+                self.show_results()  # Show results when the quiz is complete
         else:
-            messagebox.showinfo("Quiz Complete", f"Your score: {self.score}/{len(self.questions)}")
-            self.master.quit()
+            self.stop_timer()  # Ensure the timer is stopped when the quiz ends
+
+    def stop_timer(self):
+        if self.timer_running:
+            self.master.after_cancel(self.timer_id)
+            self.timer_running = False
+            self.timer_label.config(text="Time is up!")  # Optionally inform that the time has ended
+
+    def show_results(self):
+        self.stop_timer()  # Ensure timer is stopped before showing results
+        results = f"Your score: {self.score}/{len(self.questions)}\n\n"
+        results += "Your answers:\n"
+        for i, (selected, correct) in enumerate(self.selected_answers):
+            results += f"Q{i + 1}: Your answer: '{selected}' | Correct answer: '{correct}'\n"
+        messagebox.showinfo("Quiz Complete", results)
+        self.master.quit()
 
     def restart_quiz(self):
         self.score = 0
         self.question_number = 0
+        self.selected_answers = []  # Reset selected answers
         self.show_question()
 
 # Create the main window
